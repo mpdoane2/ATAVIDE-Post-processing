@@ -1,0 +1,77 @@
+This is a three step process that I'm sure can be modified into a single slurm script. If anyone has done this, please feel free to provide suggestions. 
+
+############################## Step 1 ##################################
+# Find all _lca_taxonomy.tsv.gz files in subdirectories within mmseqs output
+
+#!/bin/bash
+
+# Define source directory (the directory to search for the file)
+source_dir="/scratch/user/doan0033/tigershark/atavide_tiger/mmseqs"
+
+# Define target directory (where you want to copy the file)
+target_dir="/scratch/user/doan0033/tigershark/atavide_tiger/taxa_files"
+
+# Define the name of the file you want to copy
+file_to_copy="*_lca_taxonomy.tsv.gz"
+
+# Ensure the target directory exists, create it if not
+#mkdir -p "$target_dir"
+
+# Use find command to recursively search for the specific file in the source directory
+find "$source_dir" -type f -name "$file_to_copy" |
+while IFS= read -r file; do
+    # Copy the file to the target directory
+    cp "$file" "$target_dir"
+    echo "Copied $file to $target_dir"
+done
+
+
+############################## Step 2 ##################################
+# Summarize each file to count the number of occurrances of each taxonoic string -- abundance data
+
+#!/bin/bash
+
+#SBATCH --job-name=unique_script
+#SBATCH --time=5-0
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=50G
+#SBATCH --partition=high-capacity
+#SBATCH --qos=hc-concurrent-jobs
+#SBATCH -o %x-%j.out
+#SBATCH -e %x-%j.err
+
+
+
+# Function to process each file
+process_file() {
+    zcat "$1" | awk -F'\t' '{
+        count[$9]++
+    } END {
+        for (group in count) {
+            print group "\t" count[group]
+        }
+    }' | sort -k1,1 > "$1.tmp"
+    mv "$1.tmp" "$1"
+}
+
+# Iterate through each file
+for file in *.tsv.gz; do
+    if [ -f "$file" ]; then
+        process_file "$file"
+    fi
+done
+
+############################## Step 3 ##################################
+# We then need to remove the .gz extension from the file
+
+#!/bin/bash
+
+# Loop through each .gz file in the current directory
+for file in *.gz; do
+    # Remove the .gz extension from the file name
+    new_name="${file%.gz}"
+    # Rename the file without the .gz extension
+    mv "$file" "$new_name"
+done
+
