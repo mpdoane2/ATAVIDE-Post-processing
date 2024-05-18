@@ -1,4 +1,4 @@
-This is a three step process that I'm sure can be modified into a single slurm script. If anyone has done this, please feel free to provide suggestions. 
+This is a four step process using bash and R scripts. I'm sure this can be modified into a single slurm script in bash. If anyone has done this, please feel free to provide suggestions. 
 
 ############################## Step 1 ##################################
 # Find all _lca_taxonomy.tsv.gz files in subdirectories within mmseqs output
@@ -75,3 +75,46 @@ for file in *.gz; do
     mv "$file" "$new_name"
 done
 
+############################## Step 4 ##################################
+# We will now merge our files together into a single large data set
+# Move files to local computer or run R on your HPC environment
+
+library (dplyr)
+library(data.table)
+library(purrr)
+
+# Get a list of all .tsv files in the current directory
+files <- list.files(paste0(working_dir, "taxonomy/new_taxa"), pattern = "\\.tsv$", full.names = TRUE)
+file_names <- list.files(paste0(working_dir, "taxonomy/new_taxa"), full.names = FALSE)
+#temp <- fread(files[1], sep = "\t")
+
+#create function to remove _lca_taxonomy.tsv from column name
+remove_suffix <- function(names_list) {
+  # Remove the specific string "_lca_taxonomy.tsv" from each name in the list
+  cleaned_names <- gsub("_lca_taxonomy.tsv", "", names_list)
+  return(cleaned_names)
+}
+
+cleaned_names <- remove_suffix(file_names)
+cleaned_col_names <- sub("_S[0-9]+", "", cleaned_names)
+####################################################################
+# Read each TSV file into R
+merged_data <- files %>%
+  lapply(function(file) {
+    # Read file and rename columns
+    df <- fread(file, sep = "\t")
+    setnames(df, old = names(df), new = c("taxa", "x"))
+    return(df)
+  }) %>%
+  purrr::reduce(full_join, by = "taxa")
+
+n_columns <- ncol(merged_data)
+colnames(merged_data)[2:n_columns] <- cleaned_col_names
+
+################################################################################
+################################################################################
+
+split_data <- merged_data %>%
+  separate(taxa, into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"), sep = ";", fill = "right")
+
+split_data <- replace(split_data, is.na(split_data), 0)
