@@ -118,3 +118,20 @@ split_data <- merged_data %>%
   separate(taxa, into = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"), sep = ";", fill = "right")
 
 split_data <- replace(split_data, is.na(split_data), 0)
+
+###############################################################################
+# File in unknown taxonomic hierarchy
+data <- split_data %>% 
+  mutate (Kingdom = ifelse(str_trim(Kingdom) == "k__", paste0(Kingdom, "unknown"), str_trim(Kingdom))) %>%
+  mutate(Phylum = ifelse(str_trim(Phylum) == "p__", paste0(str_trim(Kingdom), "_unknown"), Phylum)) %>%
+  mutate(Phylum = gsub("_unknown_unknown", "_unknown", Phylum)) %>%
+  mutate(Class = ifelse(str_trim(Class) == "c__", paste0(Phylum, "_unknown"), Class)) %>%
+  mutate(Class = gsub("unknown_unknown", "unknown", Class)) %>%
+  mutate(Order = ifelse(str_trim(Order) == "o__", paste0(Class, "_unknown"), Order)) %>%
+  mutate(Order = gsub("unknown_unknown", "unknown", Order)) %>%
+  mutate(Family = ifelse(str_trim(Family) == "f__", paste0(Order, "_unknown"), Family)) %>%
+  mutate(Family = gsub("unknown_unknown", "unknown", Family)) %>%
+  mutate(Genus = ifelse(str_trim(Genus) == "g__", paste0(Family, "_unknown"), Genus)) %>%
+  mutate(Genus = gsub("unknown_unknown", "unknown", Genus)) %>%
+  mutate(Species = ifelse(str_trim(Species) == "s__", paste0(Genus, "_unknown"), Species)) %>%
+  mutate(Species = gsub("unknown_unknown", "unknown", Species))
